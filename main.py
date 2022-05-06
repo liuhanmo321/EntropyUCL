@@ -101,7 +101,10 @@ def main(device, args):
       
       with open(result_path + '/' + args.model.cl_model + '.txt', 'a+') as f:
         f.write('\nAccuracy for {} task(s): \t [Class-IL]: {} %\n'.format(t + 1, round(
-          mean_acc, 2))) 
+          mean_acc, 2)))
+
+      if args.model.cl_model == 'ours':
+        model.cluster()
      
       if args.cl_default:
         print("evaluation called")
@@ -139,7 +142,14 @@ def main(device, args):
         args.eval_from = model_path
 
 if __name__ == "__main__":
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join(visible_devices)
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1" 
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "2, 3" 
+    os.environ["CUDA_VISIBLE_DEVICES"] = "4, 5" 
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "6, 7" 
     args = get_args()
+   
     print("device is:", args.device)
     main(device=args.device, args=args)
     completed_log_dir = args.log_dir.replace('in-progress', 'debug' if args.debug else 'completed')

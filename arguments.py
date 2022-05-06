@@ -58,8 +58,12 @@ def get_args():
                         help='Test on the validation set')
     parser.add_argument('--ood_eval', action='store_true',
                         help='Test on the OOD set')
+    parser.add_argument('--device_id', type=int, default=0)
     args = parser.parse_args()
 
+
+    # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(args.device_id), str(args.device_id + 1)])
 
     with open(args.config_file, 'r') as f:
         for key, value in Namespace(yaml.load(f, Loader=yaml.FullLoader)).__dict__.items():
@@ -78,7 +82,7 @@ def get_args():
 
     assert not None in [args.log_dir, args.data_dir, args.ckpt_dir, args.name]
 
-    args.log_dir = os.path.join(args.log_dir, 'in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
+    args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
 
     os.makedirs(args.log_dir, exist_ok=False)
     print(f'creating file {args.log_dir}')

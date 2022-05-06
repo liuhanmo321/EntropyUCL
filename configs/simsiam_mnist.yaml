@@ -1,13 +1,13 @@
-name: simsiam-c10-experiment-resnet18
+name: simsiam-mnist-experiment-resnet18
 dataset: 
-  name: mixed-cifar10
-  image_size: 32
+  name: seq-mnist
+  image_size: 28
   num_workers: 4
 
 model: 
   name: simsiam
   backbone: resnet18
-  cl_model: ours
+  cl_model: mixup
   proj_layers: 2
   buffer_size: 256
 

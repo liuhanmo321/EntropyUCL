@@ -232,17 +232,37 @@ def store_mixed_masked_loaders(train_dataset: datasets, test_dataset: datasets, 
     setting.memory_loaders.append(memory_loader)
     setting.train_loader = train_loader
 
-    targets = np.array(train_dataset.targets)
+    train_targets = np.array(train_dataset.targets)
     # targets_str = [str(i) for i in targets]
     # labels = set(list(targets))
-    label_dict = {}
-    for tgt in targets:
-        if tgt in label_dict.keys():
-            label_dict[tgt] += 1
+    train_label_dict = {}
+    for tgt in train_targets:
+        if tgt in train_label_dict.keys():
+            train_label_dict[tgt] += 1
         else:
-            label_dict[tgt] = 1
+            train_label_dict[tgt] = 1
     
-    print('class summary:', label_dict)
+    print('train class summary:', train_label_dict)
+
+    test_targets = np.array(test_dataset.targets)
+    test_label_dict = {}
+    for tgt in test_targets:
+        if tgt in test_label_dict.keys():
+            test_label_dict[tgt] += 1
+        else:
+            test_label_dict[tgt] = 1
+    
+    print('test class summary:', test_label_dict)
+
+    memory_targets = np.array(memory_dataset.targets)
+    memory_label_dict = {}
+    for tgt in memory_targets:
+        if tgt in memory_label_dict.keys():
+            memory_label_dict[tgt] += 1
+        else:
+            memory_label_dict[tgt] = 1
+
+    print('memory class summary:', memory_label_dict)
 
     setting.i += setting.N_CLASSES_PER_TASK
     return train_loader, memory_loader, test_loader
