@@ -1,0 +1,7 @@
+*.npy
+__pycache__/
+checkpoints/
+data/
+results/
+.ipynb_checkpoints/
+logs/
