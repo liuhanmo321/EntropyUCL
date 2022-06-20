@@ -16,20 +16,23 @@ class Der(ContinualModel):
         self.opt.zero_grad()
         if self.args.cl_default:
             labels = labels.to(self.device)
-            outputs = self.net.module.backbone(inputs1.to(self.device))
+            # outputs = self.net.module.backbone(inputs1.to(self.device))
+            outputs = self.net.backbone(inputs1.to(self.device))
             loss = self.loss(outputs, labels).mean()
             data_dict = {'loss': loss, 'penalty': 0}
         else:
             data_dict = self.net.forward(inputs1.to(self.device, non_blocking=True), inputs2.to(self.device, non_blocking=True))
             loss = data_dict['loss'].mean()
             data_dict['loss'] = data_dict['loss'].mean()
-            outputs = self.net.module.backbone(inputs1.to(self.device))
+            # outputs = self.net.module.backbone(inputs1.to(self.device))
+            outputs = self.net.backbone(inputs1.to(self.device))
             data_dict['penalty'] = 0
 
         if not self.buffer.is_empty():
             buf_inputs, buf_logits = self.buffer.get_data(
                 self.args.train.batch_size, transform=self.transform)
-            buf_outputs = self.net.module.backbone(buf_inputs)
+            # buf_outputs = self.net.module.backbone(buf_inputs)
+            buf_outputs = self.net.backbone(buf_inputs)
             data_dict['penalty'] = self.args.train.alpha * F.mse_loss(buf_outputs, buf_logits)
             loss += data_dict['penalty']
 

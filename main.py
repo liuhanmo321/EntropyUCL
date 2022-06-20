@@ -8,7 +8,7 @@ from tqdm import tqdm
 from arguments import get_args
 from augmentations import get_aug
 from models import get_model
-from tools import AverageMeter, knn_monitor, Logger, file_exist_check
+from tools import AverageMeter, general_knn_monitor, knn_monitor, Logger, file_exist_check
 from datasets import get_dataset
 from datetime import datetime
 from utils.loggers import *
@@ -65,6 +65,9 @@ def main(device, args):
     if not os.path.exists(result_path):
       os.makedirs(result_path)
 
+    result_recording_path = result_path + '/' + args.model.cl_model + '.txt'
+    if args.cl_default:
+      result_recording_path = result_path + '/' + args.model.cl_model + '_scl.txt'
     # define model
     
     model = get_model(args, device, len(train_loader), dataset.get_transform(args))
@@ -73,7 +76,8 @@ def main(device, args):
 
     logger = Logger(matplotlib=args.logger.matplotlib, log_dir=args.log_dir)
     accuracy = 0 
-
+    acc_matrix = np.zeros((dataset.N_TASKS, dataset.N_TASKS))
+    avg_acc = []
     start_time = time.time()
     for t in range(dataset.N_TASKS):
       train_loader, memory_loader, test_loader = dataset.get_data_loaders(args)
@@ -89,33 +93,41 @@ def main(device, args):
 
         global_progress.set_postfix(data_dict)
 
-        if args.train.knn_monitor and epoch % args.train.knn_interval == 0: 
+        if args.train.knn_monitor and (epoch % args.train.knn_interval == 0 or (epoch + 1 == args.train.stop_at_epoch)): 
+            # for i in range(len(dataset.test_loaders)):
+            #   # acc, acc_mask = knn_monitor(model.net.module.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
+            #   acc, acc_mask = knn_monitor(model.net.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset))) 
+            #   results.append(acc)
+            #   acc_matrix[i][t] = acc
+            print("acc calculated at {}".format(epoch))
+            results = general_knn_monitor(model.net.backbone, dataset, dataset.memory_loaders, dataset.test_loaders, device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
             for i in range(len(dataset.test_loaders)):
-              acc, acc_mask = knn_monitor(model.net.module.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset))) 
-              results.append(acc)
+              acc_matrix[i][t] = results[i]
             mean_acc = np.mean(results)
           
         epoch_dict = {"epoch":epoch, "accuracy": mean_acc}
         global_progress.set_postfix(epoch_dict)
         logger.update_scalers(epoch_dict)
       
-      with open(result_path + '/' + args.model.cl_model + '.txt', 'a+') as f:
+      avg_acc.append(mean_acc)
+      with open(result_recording_path, 'a+') as f:
         f.write('\nAccuracy for {} task(s): \t [Class-IL]: {} %\n'.format(t + 1, round(
           mean_acc, 2)))
 
-      if args.model.cl_model == 'ours':
-        model.cluster()
+      if 'ours' in args.model.cl_model:
+        model.cluster(train_loader, device)
      
       if args.cl_default:
         print("evaluation called")
-        accs = evaluate(model.net.module.backbone, dataset, device)
+        # accs = evaluate(model.net.module.backbone, dataset, device)
+        accs = evaluate(model.net.backbone, dataset, device)
         results.append(accs[0])
         results_mask_classes.append(accs[1])
         mean_acc = np.mean(accs, axis=1)
         if dataset.SETTING == 'class-il':
           mean_acc_class_il, mean_acc_task_il = mean_acc
-          with open(result_path + '/' + args.model.cl_model + '.txt', 'a+') as f:
-            f.write('\nAccuracy for {} task(s): \t [Class-IL]: {} %'
+          with open(result_recording_path, 'a+') as f:
+            f.write('\nSCL Accuracy for {} task(s): \t [Class-IL]: {} %'
                 ' \t [Task-IL]: {} %\n'.format(t + 1, round(
               mean_acc_class_il, 2), round(mean_acc_task_il, 2)))        
         print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
@@ -132,9 +144,18 @@ def main(device, args):
       if hasattr(model, 'end_task'):
         model.end_task(dataset)
     
+    with open(result_recording_path, 'a+') as f:
+      avg_acc_str = np.array2string(np.array(avg_acc), precision=2, separator='\t')
+      avg_acc_str = avg_acc_str.replace('[', '').replace(']', '')
+      matrix_str = np.array2string(acc_matrix, precision=2, separator='\t')
+      matrix_str = matrix_str.replace('[', '').replace(']', '')
+      f.write('\n{}\t{}'.format(args.model.cl_model, avg_acc_str))
+      f.write('\nAccuracy matrix:\n {}\n'.format(matrix_str))
+    # np.savetxt(result_recording_path, acc_matrix, delimiter="\t")
+    
     end_time = time.time()
     total_time = end_time - start_time    
-    with open(result_path + '/' + args.model.cl_model + '.txt', 'a+') as f:
+    with open(result_recording_path, 'a+') as f:
       f.write('total time is: %d' % total_time)
       f.write("\n")
 
@@ -142,11 +163,11 @@ def main(device, args):
         args.eval_from = model_path
 
 if __name__ == "__main__":
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     # os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join(visible_devices)
     # os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1" 
     # os.environ["CUDA_VISIBLE_DEVICES"] = "2, 3" 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "4, 5" 
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "4, 5" 
     # os.environ["CUDA_VISIBLE_DEVICES"] = "6, 7" 
     args = get_args()
    

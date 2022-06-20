@@ -25,7 +25,7 @@ class ContinualModel(nn.Module):
         super(ContinualModel, self).__init__()
 
         self.net = backbone
-        self.net = nn.DataParallel(self.net)
+        # self.net = nn.DataParallel(self.net)
         self.loss = loss
         self.args = args
         self.transform = transform
@@ -43,8 +43,8 @@ class ContinualModel(nn.Module):
             len_train_lodaer,
             constant_predictor_lr=True # see the end of section 4.2 predictor
         )
-        self.device = get_device()
-        # self.device = torch.device(self.args.device)
+        # self.device = get_device()
+        self.device = torch.device(self.args.device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

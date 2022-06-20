@@ -24,10 +24,11 @@ class SequentialCIFAR100(ContinualDataset):
     SETTING = 'class-il'
     N_CLASSES_PER_TASK = 5
     N_TASKS = 20
+    cifar_norm = [[0.4914, 0.4822, 0.4465], [0.2470, 0.2435, 0.2615]]
    
     def get_data_loaders(self, args):
-        transform = get_aug(train=True, **args.aug_kwargs)
-        test_transform = get_aug(train=False, train_classifier=False, **args.aug_kwargs)
+        transform = get_aug(train=True, mean_std=self.cifar_norm, **args.aug_kwargs)
+        test_transform = get_aug(train=False, train_classifier=False, mean_std=self.cifar_norm, **args.aug_kwargs)
 
         train_dataset = CIFAR100(base_path() + 'CIFAR100', train=True,
                                   download=True, transform=transform)

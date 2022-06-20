@@ -6,7 +6,9 @@
 from datasets.seq_mnist import SequentialMNIST
 from datasets.seq_fmnist import SequentialFMNIST
 from datasets.seq_cifar10 import SequentialCIFAR10
+from datasets.seq_cifar10_shuffled import SequentialCIFAR10Shuffled
 from datasets.seq_cifar100 import SequentialCIFAR100
+from datasets.seq_cifar100_sub import SequentialCIFAR100Sub
 from datasets.seq_tinyimagenet import SequentialTinyImagenet
 from datasets.seq_svhn import SequentialSVHN
 from datasets.utils.continual_dataset import ContinualDataset
@@ -21,7 +23,9 @@ NAMES = {
     SequentialCIFAR10.NAME: SequentialCIFAR10,
     SequentialCIFAR100.NAME: SequentialCIFAR100,
     SequentialTinyImagenet.NAME: SequentialTinyImagenet,
-    MixedCIFAR10.NAME: MixedCIFAR10
+    MixedCIFAR10.NAME: MixedCIFAR10,
+    SequentialCIFAR100Sub.NAME: SequentialCIFAR100Sub,
+    SequentialCIFAR10Shuffled.NAME: SequentialCIFAR10Shuffled
 }
 
 

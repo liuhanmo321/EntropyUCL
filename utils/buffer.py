@@ -40,6 +40,7 @@ class Buffer:
         self.device = device
         self.num_seen_examples = 0
         self.functional_index = eval(mode)
+        self.num_seen_tasks = 0
         if mode == 'ring':
             assert n_tasks is not None
             self.task_number = n_tasks
@@ -86,7 +87,7 @@ class Buffer:
                 if task_labels is not None:
                     self.task_labels[index] = task_labels[i].to(self.device)
 
-    def get_data(self, size: int, transform: transforms=None) -> Tuple:
+    def get_data(self, size: int, transform: transforms=None, mixup: bool=False) -> Tuple:
         """
         Random samples a batch of size items.
         :param size: the number of requested items
@@ -105,9 +106,15 @@ class Buffer:
                             for ee in self.examples[choice]]).to(self.device),)
         for attr_str in self.attributes[1:]:
             if hasattr(self, attr_str):
+                # if mixup and attr_str == 'logits':
+                #     ret_tuple += (torch.stack([transform(ee.cpu())
+                #             for ee in self.examples[choice]]).to(self.device),)
+                # else:
+                #     attr = getattr(self, attr_str)
+                #     ret_tuple += (attr[choice],)
                 attr = getattr(self, attr_str)
                 ret_tuple += (attr[choice],)
-
+        # print(ret_tuple[0].shape)
         return ret_tuple
 
     def is_empty(self) -> bool:
@@ -142,3 +149,29 @@ class Buffer:
             if hasattr(self, attr_str):
                 delattr(self, attr_str)
         self.num_seen_examples = 0
+
+    def add_data_tot(self, examples, labels=None, logits=None, task_labels=None):
+        """
+        Adds the data to the memory buffer according to the reservoir strategy.
+        :param examples: tensor containing the images
+        :param labels: tensor containing the labels
+        :param logits: tensor containing the outputs of the network
+        :param task_labels: tensor containing the task labels
+        :return:
+        """
+        if not hasattr(self, 'examples'):
+            self.init_tensors(examples, labels, logits, task_labels)
+        
+        self.num_seen_tasks += 1
+
+        for i in range(examples.shape[0]):
+            index = reservoir(self.num_seen_examples, self.buffer_size)
+            self.num_seen_examples += 1
+            if index >= 0:
+                self.examples[index] = examples[i].to(self.device)
+                if labels is not None:
+                    self.labels[index] = labels[i].to(self.device)
+                if logits is not None:
+                    self.logits[index] = logits[i].to(self.device)
+                if task_labels is not None:
+                    self.task_labels[index] = task_labels[i].to(self.device)

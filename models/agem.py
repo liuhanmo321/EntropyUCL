@@ -38,7 +38,8 @@ class AGem(ContinualModel):
 
         self.zero_grad()
         labels = labels.to(self.device)
-        p = self.net.module.backbone(inputs1.to(self.device))
+        # p = self.net.module.backbone(inputs1.to(self.device))
+        p = self.net.backbone(inputs1.to(self.device))
         loss = self.loss(p, labels)
         loss.backward()
         data_dict = {'loss': loss, 'penalty': 0}
@@ -48,7 +49,8 @@ class AGem(ContinualModel):
 
             buf_inputs, buf_labels = self.buffer.get_data(self.args.train.batch_size, transform=self.transform)
             self.net.zero_grad()
-            buf_outputs = self.net.module.backbone(buf_inputs)
+            # buf_outputs = self.net.module.backbone(buf_inputs)
+            buf_outputs = self.net.backbone(buf_inputs)
             penalty = self.loss(buf_outputs, buf_labels)
             penalty.backward()
             data_dict['penalty'] = penalty

@@ -1,6 +1,6 @@
 name: simsiam-c100-experiment-resnet18
 dataset: 
-  name: seq-cifar100
+  name: seq-cifar100-sub
   image_size: 32
   num_workers: 4
 
@@ -20,13 +20,15 @@ train:
   warmup_lr: 0
   base_lr: 0.03
   final_lr: 0
-  num_epochs: 200 # this parameter influence the lr decay
-  stop_at_epoch: 200 # has to be smaller than num_epochs
+  num_epochs: 50 # this parameter influence the lr decay
+  stop_at_epoch: 20 # has to be smaller than num_epochs
   batch_size: 256
   knn_monitor: True # knn monitor will take more time
-  knn_interval: 1
-  knn_k: 200
+  knn_interval: 20
+  knn_k: 20
   alpha: 0.4
+  beta: 0.1
+  min_cluster_size: 50
 eval: # linear evaluation, False will turn off automatic evaluation after training
   optimizer: 
     name: sgd

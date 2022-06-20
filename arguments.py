@@ -58,20 +58,22 @@ def get_args():
                         help='Test on the validation set')
     parser.add_argument('--ood_eval', action='store_true',
                         help='Test on the OOD set')
-    parser.add_argument('--device_id', type=int, default=0)
+    parser.add_argument('--method', type=str, default=None)
     args = parser.parse_args()
 
 
     # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     # os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(args.device_id), str(args.device_id + 1)])
 
+    if len(args.device) == 1:
+        args.device = 'cuda:' + args.device
     with open(args.config_file, 'r') as f:
         for key, value in Namespace(yaml.load(f, Loader=yaml.FullLoader)).__dict__.items():
             vars(args)[key] = value
 
     if args.debug:
         if args.train: 
-            # args.train.batch_size = 2
+            # args.train.batch_size = 16
             args.train.num_epochs = 1
             args.train.stop_at_epoch = 1
         if args.eval: 
@@ -79,10 +81,19 @@ def get_args():
             args.eval.num_epochs = 1 # train only one epoch
         # args.dataset.num_workers = 0
 
-
     assert not None in [args.log_dir, args.data_dir, args.ckpt_dir, args.name]
 
-    args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
+    if args.method is not None:
+        args.model.cl_model = args.method
+
+    print(args.model.cl_model)
+
+    if not args.cl_default:
+        args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
+    else:
+        args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_scl_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
+
+    args.utils.comment = '_' + str(args.utils.comment) if args.utils.use_comment else ''
 
     os.makedirs(args.log_dir, exist_ok=False)
     print(f'creating file {args.log_dir}')

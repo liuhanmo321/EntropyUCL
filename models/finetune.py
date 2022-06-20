@@ -15,7 +15,8 @@ class Finetune(ContinualModel):
         self.opt.zero_grad()
         if self.args.cl_default:
             labels = labels.to(self.device)
-            outputs = self.net.module.backbone(inputs1.to(self.device))
+            # outputs = self.net.module.backbone(inputs1.to(self.device))
+            outputs = self.net.backbone(inputs1.to(self.device))
             loss = self.loss(outputs, labels).mean()
             data_dict = {'loss': loss}
             data_dict['penalty'] = 0.0

@@ -39,7 +39,8 @@ class Pnn(ContinualModel):
         self.loss = loss
         self.args = args
         self.transform = transform
-        self.device = get_device()
+        # self.device = get_device()
+        self.device = torch.device(self.args.device)
         self.x_shape = None
         self.nets = [self.net]
         self.net = self.nets[-1]
@@ -86,7 +87,8 @@ class Pnn(ContinualModel):
             loss = self.loss(outputs, labels)
             data_dict = {'loss': loss, 'penalty': 0.0}
         else:
-            data_dict = self.net.forward(inputs1.to(self.device, non_blocking=True), inputs2.to(self.device, non_blocking=True))
+            # data_dict = self.net.forward(inputs1.to(self.device, non_blocking=True), inputs2.to(self.device, non_blocking=True))
+            data_dict = self.net.forward(inputs1.to(self.device), inputs2.to(self.device))
             data_dict['loss'] = data_dict['loss'][0].mean()
             data_dict['penalty'] = 0.0
             loss = data_dict['loss']

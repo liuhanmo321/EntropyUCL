@@ -13,8 +13,126 @@ from utils import create_if_not_exists
 from utils.conf import base_path
 import numpy as np
 
+import torch.nn.functional as F 
+import torch
+from utils.metrics import mask_classes
+import pandas as pd
+# from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
 useless_args = ['dataset', 'tensorboard', 'validation', 'model',
                 'csv_log', 'notes', 'load_best_args']
+
+colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
+              '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+              '#bcbd22', '#17becf']
+
+def plot_feat(net, memory_data_loaders, test_data_loaders, task_id, device, cl_default, axs):
+    net.eval()
+    feature_bank = []
+    label_bank = []
+    with torch.no_grad():
+        # generate feature bank
+        for i in range(len(memory_data_loaders)):
+            temp_label_bank = []
+            for idx, (images, labels) in enumerate(memory_data_loaders[i]):
+                if cl_default:
+                    feature = net(images.to(device), return_features=True)
+                else:
+                    feature = net(images.to(device))
+                feature = F.normalize(feature, dim=1)
+                feature_bank.append(feature)
+                temp_label_bank += labels
+            label_bank += temp_label_bank
+        feature_bank = torch.cat(feature_bank, dim=0).contiguous()
+        label_bank = np.array(label_bank)
+        feature_bank = feature_bank.cpu()
+
+    feature_embedded = TSNE(n_components=2, learning_rate='auto', perplexity=40,
+                init='pca').fit_transform(feature_bank)
+
+    label_color = np.array([colors[i] for i in label_bank])
+    
+    tot_index = []
+    for i in range(len(test_data_loaders)):
+        prefix = int(feature_embedded.shape[0] / len(test_data_loaders) * i)
+        plot_range = int(min(feature_embedded.shape[0] / len(test_data_loaders), 500))
+        index = list(range(prefix, prefix + plot_range))
+        tot_index += index
+        axs[i + 1, len(test_data_loaders) - 1].scatter(feature_embedded[index, 0], feature_embedded[index, 1], c=label_color[index])
+
+    axs[0, len(test_data_loaders) - 1].scatter(feature_embedded[tot_index, 0], feature_embedded[tot_index, 1], c=label_color[tot_index])
+    # ax.scatter(feature_embedded[index, 0], feature_embedded[index, 1], c=label_bank[index])
+    return axs
+
+def plot_feat_sep(net, memory_data_loaders, test_data_loaders, task_id, device, cl_default, ax):
+    net.eval()
+    feature_bank = []
+    label_bank = []
+    with torch.no_grad():
+        # generate feature bank
+        for idx, (images, labels) in enumerate(memory_data_loaders[task_id]):
+            if cl_default:
+                feature = net(images.to(device), return_features=True)
+            else:
+                feature = net(images.to(device))
+            feature = F.normalize(feature, dim=1)
+            feature_bank.append(feature)
+            label_bank += labels
+        feature_bank = torch.cat(feature_bank, dim=0).contiguous()
+        label_bank = np.array(label_bank)
+        feature_bank = feature_bank.cpu()
+
+    feature_embedded = TSNE(n_components=2, learning_rate='auto', perplexity=40,
+                init='pca').fit_transform(feature_bank)
+    
+    plot_range = int(min(feature_embedded.shape[0], 500))
+    index = list(range(plot_range))
+    ax.scatter(feature_embedded[index, 0], feature_embedded[index, 1], c=label_bank[index])
+    # ax.scatter(feature_embedded[index, 0], feature_embedded[index, 1], c=label_bank[index])
+    return ax
+
+def plot_feat_tot(net, memory_data_loader, test_data_loaders, device, cl_default, ax):
+    net.eval()
+    feature_bank = []
+    label_bank = []
+    with torch.no_grad():
+        # generate feature bank
+        for i in range(len(test_data_loaders)):
+            # temp_feature_bank = []
+            # temp_label_bank = []
+            for idx, (images, labels) in enumerate(test_data_loaders[i]):
+            # for data, target in tqdm(memory_data_loader, desc='Feature extracting', leave=False, disable=True):
+                if cl_default:
+                    # feature = self.net.backbone(notaug_images.cuda(non_blocking=True), return_features=True)
+                    feature = net(images.to(device), return_features=True)
+                else:
+                    feature = net(images.to(device))
+                feature = F.normalize(feature, dim=1)
+                feature_bank.append(feature)
+                label_bank += labels
+
+            # [D, N]
+        feature_bank = torch.cat(feature_bank, dim=0).contiguous()
+        label_bank = np.array(label_bank)
+        feature_bank = feature_bank.cpu()
+
+            # feature_bank.append(temp_feature_bank)
+            # label_bank.append(temp_label_bank)
+
+    feature_embedded = TSNE(n_components=2, learning_rate='auto', perplexity=40,
+                init='pca').fit_transform(feature_bank)
+    
+    index = []
+    for i in range(len(test_data_loaders)):
+        prefix = int(feature_embedded.shape[0] / len(test_data_loaders) * i)
+        plot_range = int(min(feature_embedded.shape[0] / len(test_data_loaders), 200))
+        index += list(range(prefix, prefix + plot_range))
+        # index.append(temp_index)
+    # index = np.concatenate(index, axis=0)
+    ax.scatter(feature_embedded[index, 0], feature_embedded[index, 1], c=label_bank[index])
+    return ax
+
 
 
 def print_mean_accuracy(mean_acc: np.ndarray, task_number: int,

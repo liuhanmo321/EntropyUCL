@@ -8,17 +8,20 @@ from utils.metrics import mask_classes
 # test using a knn monitor
 def knn_monitor(net, dataset, memory_data_loader, test_data_loader, device, cl_default, task_id, k=200, t=0.1, hide_progress=False):
     net.eval()
-    # classes = len(memory_data_loader.dataset.classes)
-    classes = 100
+    classes = len(memory_data_loader.dataset.classes)
+    # classes = 100
     total_top1 = total_top1_mask = total_top5 = total_num = 0.0
     feature_bank = []
     with torch.no_grad():
         # generate feature bank
         for data, target in tqdm(memory_data_loader, desc='Feature extracting', leave=False, disable=True):
+            # print(data[0])
             if cl_default:
-                feature = net(data.cuda(non_blocking=True), return_features=True)
+                # feature = net(data.cuda(non_blocking=True), return_features=True)
+                feature = net(data.to(device), return_features=True)
             else:
-                feature = net(data.cuda(non_blocking=True))
+                # feature = net(data.cuda(non_blocking=True))
+                feature = net(data.to(device))
             feature = F.normalize(feature, dim=1)
             feature_bank.append(feature)
         # [D, N]
@@ -29,7 +32,8 @@ def knn_monitor(net, dataset, memory_data_loader, test_data_loader, device, cl_d
         # loop test data to predict the label by weighted knn search
         test_bar = tqdm(test_data_loader, desc='kNN', disable=True)
         for data, target in test_bar:
-            data, target = data.cuda(non_blocking=True), target.cuda(non_blocking=True)
+            # data, target = data.cuda(non_blocking=True), target.cuda(non_blocking=True)
+            data, target = data.to(device), target.to(device)
             if cl_default:
                 feature = net(data, return_features=True)
             else:
@@ -47,6 +51,65 @@ def knn_monitor(net, dataset, memory_data_loader, test_data_loader, device, cl_d
             total_top1_mask += torch.sum(preds == target).item()
 
     return total_top1 / total_num * 100, total_top1_mask / total_num * 100
+
+
+def general_knn_monitor(net, dataset, memory_data_loaders, test_data_loaders, device, cl_default, task_id, k=200, t=0.1, hide_progress=False):
+    net.eval()
+    classes = len(memory_data_loaders[0].dataset.classes)
+    # classes = 100
+    # total_top1 = total_top1_mask = total_top5 = total_num = 0.0
+    feature_bank = []
+    label_bank = []
+    with torch.no_grad():
+        # generate feature bank
+        for memory_data_loader in memory_data_loaders:
+            for data, target in tqdm(memory_data_loader, desc='Feature extracting', leave=False, disable=True):
+                # print(data[0])
+                if cl_default:
+                    # feature = net(data.cuda(non_blocking=True), return_features=True)
+                    feature = net(data.to(device), return_features=True)
+                else:
+                    # feature = net(data.cuda(non_blocking=True))
+                    feature = net(data.to(device))
+                feature = F.normalize(feature, dim=1)
+                feature_bank.append(feature)
+            
+            label_bank.append(torch.tensor(memory_data_loader.dataset.targets, device=device))
+        # [D, N]
+        feature_bank = torch.cat(feature_bank, dim=0).t().contiguous()
+        # [N]
+        # feature_labels = torch.tensor(memory_data_loader.dataset.targets - np.amin(memory_data_loader.dataset.targets), device=feature_bank.device)
+        feature_labels = torch.cat(label_bank, dim=0).contiguous()
+
+        # loop test data to predict the label by weighted knn search
+        results = []
+        for test_data_loader in test_data_loaders:
+            total_top1 = total_top1_mask = total_top5 = total_num = 0.0
+            test_bar = tqdm(test_data_loader, desc='kNN', disable=True)
+            for data, target in test_bar:
+                # data, target = data.cuda(non_blocking=True), target.cuda(non_blocking=True)
+                data, target = data.to(device), target.to(device)
+                if cl_default:
+                    feature = net(data, return_features=True)
+                else:
+                    feature = net(data)
+                feature = F.normalize(feature, dim=1)
+                
+                pred_scores = knn_predict(feature, feature_bank, feature_labels, classes, k, t)
+
+                total_num += data.shape[0]
+                _, preds = torch.max(pred_scores.data, 1)
+                total_top1 += torch.sum(preds == target).item()
+                
+                pred_scores = mask_classes(pred_scores, dataset, task_id)
+                _, preds = torch.max(pred_scores.data, 1)
+                total_top1_mask += torch.sum(preds == target).item()
+            
+            results.append(total_top1 / total_num * 100)       
+    return results
+
+
+
 
 
 # knn monitor as in InstDisc https://arxiv.org/abs/1805.01978
