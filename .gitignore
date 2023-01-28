@@ -13,10 +13,11 @@ savings/
 figures/
 diff_augs.py
 reference.py 
-orig_UCL/
+orig_UCL/*
 run_continual.py
 test.ipynb
 stream.py
+
 models/cassle_syn_act.py
 models/cassle_syn_dist.py
 models/cassle_syn_dm.py
