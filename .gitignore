@@ -15,8 +15,9 @@ diff_augs.py
 reference.py 
 orig_UCL/*
 tiny-imagenet-processed.zip
-./run_continual.py
-./test.ipynb
+
+run_continual.py
+test.ipynb
 stream.py
 
 models/cassle_syn_act.py
