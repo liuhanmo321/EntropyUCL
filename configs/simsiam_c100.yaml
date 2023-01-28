@@ -78,7 +78,7 @@ utils:
   use_comment: True
   # comment: 10class_buf320_300epoch_seed1
   # comment: 10class_300epc_seed4
-  comment: random_buf32_seed3
+  comment: test_seed3
   
  
 logger:
