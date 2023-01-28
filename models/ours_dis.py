@@ -41,7 +41,7 @@ class Ours_dis(ContinualModel):
         with torch.no_grad():
             z1_old, z2_old = f_old(x1), f_old(x2)
         # L_dis = D(p1, z1_old, T=self.args.train.T) / 2 + D(p2, z2_old, T=self.args.train.T) / 2
-        L_dis = self.args.train.alpha * (D(p1, z1_old) / 2 + D(p2, z2_old) / 2)
+        L_dis = self.args.train.beta * (D(p1, z1_old) / 2 + D(p2, z2_old) / 2)
         # L_dis = D(p1, z2_old, T=self.args.train.T) / 2 + D(p2, z1_old, T=self.args.train.T) / 2
         return {'loss': L_con, 'penalty': L_dis}
 

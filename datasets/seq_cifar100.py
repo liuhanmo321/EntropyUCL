@@ -16,7 +16,7 @@ from datasets.transforms.denormalization import DeNormalize
 import torch
 from augmentations import get_aug
 from PIL import Image
-
+import numpy as np
 
 class SequentialCIFAR100(ContinualDataset):
 
@@ -24,9 +24,18 @@ class SequentialCIFAR100(ContinualDataset):
     SETTING = 'class-il'
     N_CLASSES_PER_TASK = 5
     N_TASKS = 20
+    # N_CLASSES_PER_TASK = 10
+    # N_TASKS = 10
     cifar_norm = [[0.4914, 0.4822, 0.4465], [0.2470, 0.2435, 0.2615]]
+
+    def __init__(self, args) -> None:
+        super(SequentialCIFAR100, self).__init__(args)
+        # if args.seed not in [None, 1]:
+        # self.N_CLASSES_PER_TASK = args.dataset.n_classes_per_task
+        # self.N_TASK = int(100 / args.dataset.n_classes_per_task)
    
     def get_data_loaders(self, args):
+        # print(self.permuted_class[:20])
         transform = get_aug(train=True, mean_std=self.cifar_norm, **args.aug_kwargs)
         test_transform = get_aug(train=False, train_classifier=False, mean_std=self.cifar_norm, **args.aug_kwargs)
 

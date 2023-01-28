@@ -47,3 +47,56 @@ def get_gcl_dataset(args: Namespace):
     """
     assert args.dataset in GCL_NAMES.keys()
     return GCL_NAMES[args.dataset](args)
+
+def get_dataset_all(args):
+    from augmentations import get_aug
+    from datasets.seq_tinyimagenet import base_path
+    from torch.utils.data import DataLoader
+
+    # if dataset == 'mnist':
+    #     dataset = torchvision.datasets.MNIST(data_dir, train=train, transform=transform, download=download)
+    # elif dataset == 'stl10':
+    #     dataset = torchvision.datasets.STL10(data_dir, split='train+unlabeled' if train else 'test', transform=transform, download=download)
+    if args.dataset.name == 'seq-cifar10':
+        norm_std = [[0.4914, 0.4822, 0.4465], [0.2470, 0.2435, 0.2615]]
+        transform = get_aug(train=True, mean_std=norm_std, **args.aug_kwargs)
+        dataset = torchvision.datasets.CIFAR10(base_path() + 'CIFAR10', train=True, transform=transform, download=True) 
+        loader = DataLoader(dataset,
+                            batch_size=args.train.batch_size, shuffle=True, num_workers=4)       
+    elif args.dataset.name == 'seq-cifar100':
+        norm_std = [[0.4914, 0.4822, 0.4465], [0.2470, 0.2435, 0.2615]]
+        transform = get_aug(train=True, mean_std=norm_std, **args.aug_kwargs)
+        dataset = torchvision.datasets.CIFAR100(base_path() + 'CIFAR100', train=True, transform=transform, download=True)
+        loader = DataLoader(dataset,
+                            batch_size=args.train.batch_size, shuffle=True, num_workers=4)
+    # elif dataset == 'imagenet':
+    #     dataset = torchvision.datasets.ImageNet(data_dir, split='train' if train == True else 'val', transform=transform, download=download)
+    # elif dataset == 'random':
+    #     dataset = RandomDataset()
+    else:
+        raise NotImplementedError   
+
+    return loader
+
+def get_dataset_off(dataset, data_dir, transform, train=True, download=False, debug_subset_size=None):
+    from augmentations import get_aug
+    # if dataset == 'mnist':
+    #     dataset = torchvision.datasets.MNIST(data_dir, train=train, transform=transform, download=download)
+    # elif dataset == 'stl10':
+    #     dataset = torchvision.datasets.STL10(data_dir, split='train+unlabeled' if train else 'test', transform=transform, download=download)
+    if dataset == 'seq-cifar10':
+        dataset = torchvision.datasets.CIFAR10(data_dir, train=train, transform=transform, download=download)
+        norm_std = [[0.4914, 0.4822, 0.4465], [0.2470, 0.2435, 0.2615]]
+    elif dataset == 'seq-cifar100':
+        dataset = torchvision.datasets.CIFAR100(data_dir, train=train, transform=transform, download=download)
+        norm_std = [[0.4914, 0.4822, 0.4465], [0.2470, 0.2435, 0.2615]]
+    elif dataset == 'imagenet':
+        dataset = torchvision.datasets.ImageNet(data_dir, split='train' if train == True else 'val', transform=transform, download=download)
+    # elif dataset == 'random':
+    #     dataset = RandomDataset()
+    else:
+        raise NotImplementedError
+
+    transform = get_aug(train=True, mean_std=norm_std, **args.aug_kwargs)
+
+    return dataset

@@ -20,12 +20,14 @@ class ContinualModel(nn.Module):
     NAME = None
     COMPATIBILITY = []
 
-    def __init__(self, backbone: nn.Module, loss: nn.Module,
+    def __init__(self, con_model: nn.Module, loss: nn.Module,
             args: Namespace, len_train_lodaer, transform: torchvision.transforms) -> None:
         super(ContinualModel, self).__init__()
 
-        self.net = backbone
-        # self.net = nn.DataParallel(self.net)
+        self.net = con_model
+        if args.train.parallel:
+            self.net = nn.DataParallel(self.net)
+        
         self.loss = loss
         self.args = args
         self.transform = transform

@@ -46,16 +46,15 @@ class Ours_dis_mix_replay(ContinualModel):
             p = h(z)
             with torch.no_grad():
                 z_old = f_old(x)
-                p_old = h_old(z_old)
             # L_dis = D(p1, z1_old, T=self.args.train.T) / 2 + D(p2, z2_old, T=self.args.train.T) / 2
-            L_dis = self.args.train.alpha * (D(p, z_old))
+            L_dis = self.args.train.beta * (D(p, z_old))
             # L_dis = D(p1, z2_old, T=self.args.train.T) / 2 + D(p2, z1_old, T=self.args.train.T) / 2
         else:
             z1, z2 = f(x), f(x2)
             p1, p2 = h(z1), h(z2)
             with torch.no_grad():
                 z1_old, z2_old = f_old(x), f_old(x2)
-            L_dis = self.args.train.alpha * (D(p1, z2_old) / 2 + D(p2, z1_old) / 2)
+            L_dis = self.args.train.beta * (D(p1, z2_old) / 2 + D(p2, z1_old) / 2)
         return L_dis.mean()
 
     def observe(self, inputs1, labels, inputs2, notaug_inputs, model_old=None):
@@ -85,12 +84,23 @@ class Ours_dis_mix_replay(ContinualModel):
             # loss = data_dict['loss'] + data_dict['penalty']
 
         if model_old != None:
-            buf_inputs = self.buffer.get_data(self.args.train.batch_size, transform=self.transform)[0]
-            # buf_outputs = self.net.module.backbone(buf_inputs)
-            # buf_outputs = self.forward(buf_inputs, model_old)
-            data_dict['penalty'] = self.forward(buf_inputs, model_old)
-            # data_dict['penalty'] = self.forward(buf_inputs, model_old, buf_inputs2)
-            loss += data_dict['penalty']
+            buf_inputs = self.buffer.get_data(self.args.train.batch_size, transform=self.transform)
+            if len(buf_inputs) == 1:
+                buf_inputs = buf_inputs[0]
+                lam = np.random.beta(0.5, 1)
+                size = min(inputs1.shape[0], buf_inputs.shape[0])
+                mixed_x = lam * inputs1[:size].to(self.device) + (1 - lam) * buf_inputs[:size].to(self.device)            
+                data_dict['penalty'] = self.forward(mixed_x, model_old)
+                # data_dict['penalty'] = self.forward(buf_inputs, model_old, buf_inputs2)
+                loss += data_dict['penalty']
+            else:
+                lam = np.random.beta(0.5, 1)
+                size = min(inputs1.shape[0], buf_inputs[0].shape[0])
+                mixed_x = lam * inputs1[:size].to(self.device) + (1 - lam) * buf_inputs[0][:size].to(self.device)
+                mixed_x_aug = lam * inputs2[:size].to(self.device) + (1 - lam) * buf_inputs[1][:size].to(self.device)
+                data_dict['penalty'] = self.forward(mixed_x, model_old, mixed_x_aug)
+                # data_dict['penalty'] = self.forward(buf_inputs, model_old, buf_inputs2)
+                loss += data_dict['penalty']
 
         loss.backward()
         self.opt.step()
@@ -106,7 +116,7 @@ class Ours_dis_mix_replay(ContinualModel):
         # print(indices)
         # examples = dataset.train_loaders[-1].dataset.data[indices, :]      
         image_bank = []
-        for _, ((_, images2, notaug_images), _) in enumerate(dataset.train_loaders[-1]):
+        for _, ((_, _, notaug_images), _) in enumerate(dataset.train_loaders[-1]):
             image_bank.append(notaug_images)
         image_bank = torch.cat(image_bank, dim=0).contiguous()
         examples = image_bank[indices, :]
@@ -170,6 +180,57 @@ class Buffer:
                 setattr(self, attr_str, torch.zeros((self.buffer_size,
                         *attr.shape[1:]), dtype=typ, device=self.device))
 
+    # def add_data(self, examples, labels=None, logits=None, task_labels=None, seen=0):
+    #     """
+    #     Adds the data to the memory buffer according to the reservoir strategy.
+    #     :param examples: tensor containing the images
+    #     :param labels: tensor containing the labels
+    #     :param logits: tensor containing the outputs of the network
+    #     :param task_labels: tensor containing the task labels
+    #     :return:
+    #     """
+    #     if not hasattr(self, 'examples'):
+    #         self.init_tensors(examples, labels, logits, task_labels)
+        
+    #     self.ds_buffer.append(examples)
+    #     sampling_range = int(self.buffer_size / seen)
+    #     for ds_id in range(seen):
+    #         if ds_id + 1 == seen:
+    #             for i in range((self.buffer_size - ds_id * sampling_range)):
+    #                 self.examples[i + ds_id * sampling_range] = self.ds_buffer[ds_id][i]
+    #                 # self.logits[i + ds_id * sampling_range] = self.ds_buffer[ds_id][1][i]
+    #         else:
+    #             for i in range(sampling_range):
+    #                 self.examples[i + ds_id * sampling_range] = self.ds_buffer[ds_id][i]
+    #                 # self.logits[i + ds_id * sampling_range] = self.ds_buffer[ds_id][1][i]
+
+    # def get_data(self, size: int, transform: transforms=None) -> Tuple:
+    #     """
+    #     Random samples a batch of size items.
+    #     :param size: the number of requested items
+    #     :param transform: the transformation to be applied (data augmentation)
+    #     :return:
+    #     """
+    #     if size > min(self.num_seen_examples, self.examples.shape[0]):
+    #         size = min(self.num_seen_examples, self.examples.shape[0])
+
+    #     choice = np.random.choice(min(self.num_seen_examples, self.examples.shape[0]),
+    #                               size=size, replace=False)
+    #     if transform is None: transform = lambda x: x
+    #     # import pdb
+    #     # pdb.set_trace()
+    #     ret_tuple = (torch.stack([transform(ee.cpu()) for ee in self.examples]).to(self.device),)
+    #     # ret_tuple = (torch.stack([transform(ee.cpu())
+    #     #             for ee in self.examples[choice]]).to(self.device),
+    #     #             torch.stack([transform(ee.cpu())
+    #     #                     for ee in self.examples[choice]]).to(self.device))
+    #     for attr_str in self.attributes[1:]:
+    #         if hasattr(self, attr_str):
+    #             attr = getattr(self, attr_str)
+    #             ret_tuple += (attr[choice],)
+
+    #     return ret_tuple
+
     def add_data(self, examples, labels=None, logits=None, task_labels=None, seen=0):
         """
         Adds the data to the memory buffer according to the reservoir strategy.
@@ -183,16 +244,7 @@ class Buffer:
             self.init_tensors(examples, labels, logits, task_labels)
         
         self.ds_buffer.append(examples)
-        sampling_range = int(self.buffer_size / seen)
-        for ds_id in range(seen):
-            if ds_id + 1 == seen:
-                for i in range((self.buffer_size - ds_id * sampling_range)):
-                    self.examples[i + ds_id * sampling_range] = self.ds_buffer[ds_id][i]
-                    # self.logits[i + ds_id * sampling_range] = self.ds_buffer[ds_id][1][i]
-            else:
-                for i in range(sampling_range):
-                    self.examples[i + ds_id * sampling_range] = self.ds_buffer[ds_id][i]
-                    # self.logits[i + ds_id * sampling_range] = self.ds_buffer[ds_id][1][i]
+        self.examples = torch.cat(self.ds_buffer, dim=0)
 
     def get_data(self, size: int, transform: transforms=None) -> Tuple:
         """
@@ -201,25 +253,27 @@ class Buffer:
         :param transform: the transformation to be applied (data augmentation)
         :return:
         """
-        if size > min(self.num_seen_examples, self.examples.shape[0]):
-            size = min(self.num_seen_examples, self.examples.shape[0])
+        if size > self.examples.shape[0]:
+            size = self.examples.shape[0]
 
-        choice = np.random.choice(min(self.num_seen_examples, self.examples.shape[0]),
-                                  size=size, replace=False)
+        choice = np.random.choice(self.examples.shape[0], size=size, replace=False)
+
         if transform is None: transform = lambda x: x
         # import pdb
         # pdb.set_trace()
-        ret_tuple = (torch.stack([transform(ee.cpu()) for ee in self.examples]).to(self.device),)
-        # ret_tuple = (torch.stack([transform(ee.cpu())
-        #             for ee in self.examples[choice]]).to(self.device),
-        #             torch.stack([transform(ee.cpu())
-        #                     for ee in self.examples[choice]]).to(self.device))
+        # ret_tuple = (torch.stack([transform(ee.cpu()) for ee in self.examples[choice]]).to(self.device),)
+        ret_tuple = (torch.stack([transform(ee.cpu())
+                for ee in self.examples[choice]]).to(self.device),
+            torch.stack([transform(ee.cpu())
+                for ee in self.examples[choice]]).to(self.device),)
+        
         for attr_str in self.attributes[1:]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str)
                 ret_tuple += (attr[choice],)
 
         return ret_tuple
+
 
     def is_empty(self) -> bool:
         """

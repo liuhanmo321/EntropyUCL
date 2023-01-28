@@ -1,0 +1,93 @@
+name: simsiam-c100-experiment-resnet18
+
+repeat: 3
+
+dataset: 
+  name: seq-cifar100-sub
+  image_size: 32
+  num_workers: 4
+  permute_classes: True
+
+model: 
+  name: simsiam
+  backbone: resnet18
+  cl_model: finetune
+  proj_layers: 2
+  buffer_size: 32
+  # buffer_size: 256
+
+train:
+  optimizer: 
+    name: sgd
+    weight_decay: 0.0005
+    momentum: 0.9
+  warmup_epochs: 10
+  warmup_lr: 0
+  base_lr: 0.03
+  final_lr: 0
+  num_epochs: 10 # this parameter influence the lr decay
+  stop_at_epoch: 3 # has to be smaller than num_epochs
+  batch_size: 256
+  knn_monitor: True # knn monitor will take more time
+  knn_interval: 100
+  knn_k: 1
+  alpha: 0.1
+  beta: 1
+  min_cluster_size: 20
+  cluster_number: 13
+
+  T: 0.5
+  continual_step: 3
+  storing_method: random
+  more_epochs: False
+  distill_old: True
+  # cluster_type: hierarchical
+  cluster_type: pca
+  linkage: average
+  distill_relation: False
+  add_noise: True
+  encoder_feat: True
+  threshold: 0.2
+  
+  parallel: True
+  knn_n: 50
+
+  img_lr: 1
+  lr_lr: 1e-05
+  syn_lr: 0.3
+  syn_step: 50
+  feat_dist_type: mse
+  expert_epoch: 1
+  # distill_step: 100
+  f_train_step: 25
+  distill_step: 100
+  noise_mag: 0.05
+
+eval: # linear evaluation, False will turn off automatic evaluation after training
+  optimizer: 
+    name: sgd
+    weight_decay: 0
+    momentum: 0.9
+  warmup_lr: 0
+  warmup_epochs: 0
+  base_lr: 0.1
+  final_lr: 0
+  batch_size: 256
+  num_epochs: 50
+  eval_type: task
+
+utils:
+  plot_feat: False
+  posi_trans: True
+  use_comment: True
+  comment: relation_1
+
+logger:
+  csv_log: True
+  tensorboard: True
+  matplotlib: True
+
+seed: 2 # None type for yaml file
+# two things might lead to stochastic behavior other than seed:
+# worker_init_fn from dataloader and torch.nn.functional.interpolate 
+# (keep this in mind if you want to achieve 100% deterministic)

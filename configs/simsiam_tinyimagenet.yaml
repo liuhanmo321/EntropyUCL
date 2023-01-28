@@ -1,15 +1,19 @@
 name: simsiam-tinyimg-experiment-resnet18
+
+repeat: 3
+
 dataset: 
   name: seq-tinyimg
   image_size: 64
-  num_workers: 4
+  num_workers: 8
+  permute_classes: False
 
 model: 
   name: simsiam
   backbone: resnet18
   cl_model: finetune
   proj_layers: 2
-  buffer_size: 256
+  buffer_size: 32
 
 train:
   optimizer: 
@@ -24,9 +28,29 @@ train:
   stop_at_epoch: 200 # has to be smaller than num_epochs
   batch_size: 256
   knn_monitor: True # knn monitor will take more time
-  knn_interval: 1
+  knn_interval: 100
   knn_k: 200
   alpha: 0.4
+  beta: 1
+  min_cluster_size: 25
+  cluster_number: 13
+  T: 0.5
+  continual_step: 3
+  storing_method: random
+  more_epochs: 0
+  distill_old: True
+  cluster_type: pca
+  linkage: average
+  distill_relation: False
+  remove_outliers: False
+  
+  add_noise: False
+  encoder_feat: True
+  threshold: 0.01
+
+  knn_n: 10
+  parallel: True
+
 eval: # linear evaluation, False will turn off automatic evaluation after training
   optimizer: 
     name: sgd
@@ -34,17 +58,23 @@ eval: # linear evaluation, False will turn off automatic evaluation after traini
     momentum: 0.9
   warmup_lr: 0
   warmup_epochs: 0
-  base_lr: 30
+  base_lr: 0.1
   final_lr: 0
   batch_size: 256
   num_epochs: 100
-
+  eval_type: task
 logger:
   csv_log: True
   tensorboard: True
   matplotlib: True
 
-seed: null # None type for yaml file
+utils:
+  plot_feat: False
+  posi_trans: True
+  use_comment: True
+  comment: seed2
+
+seed: 2 # None type for yaml file
 # two things might lead to stochastic behavior other than seed:
 # worker_init_fn from dataloader and torch.nn.functional.interpolate 
 # (keep this in mind if you want to achieve 100% deterministic)

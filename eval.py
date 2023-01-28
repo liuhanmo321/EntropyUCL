@@ -93,27 +93,70 @@ def main(device, args):
     fwt = []
     bwt = []
 
-    for t in range(dataset.N_TASKS):
-        _, _, _ = dataset.get_data_loaders(
-            args)
+    if args.method != 'joint':
+        for t in range(dataset.N_TASKS):
+            _, _, _ = dataset.get_data_loaders(args)
+            model_path = os.path.join(
+                args.ckpt_dir, f"{args.model.cl_model}{scl_prefix}_{args.dataset.name}_{args.model.name}{args.utils.comment}_{t}.pth")
+            print(f'loading from {model_path}')
+            # model.load_state_dict(torch.load(model_path)['state_dict'], strict=False)
+            model.cpu()
+            model.net.backbone.load_state_dict({k[9:]:v for k, v in torch.load(model_path)['state_dict'].items() if 'backbone.' in k}, strict=True)
+            model.to(device)
+            model.eval()
+
+            if args.train.knn_monitor:
+                if args.eval.eval_type == 'task':
+                    results = []
+                    for i in range(len(dataset.test_loaders)):
+                        # acc, acc_mask = knn_monitor(model.net.module.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
+                        acc, acc_mask = knn_monitor(model.net.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
+                        results.append(acc)
+                        acc_matrix[i][t] = acc
+                else:
+                    results = general_knn_monitor(model.net.backbone, dataset, dataset.memory_loaders, dataset.test_loaders, device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
+                    for i in range(len(dataset.test_loaders)):
+                        acc_matrix[i][t] = results[i]
+                mean_acc = np.mean(results)
+            avg_acc.append(mean_acc)
+
+            if args.utils.plot_feat:
+                # tot_axs[t] = plot_feat_tot(
+                #     model.net.backbone, dataset.memory_loaders, dataset.test_loaders, device, args.cl_default, tot_axs[t])
+                # for sub_t in range(t + 1):
+                #     sep_axs[sub_t, t] = plot_feat(model.net.backbone, dataset.memory_loaders,
+                #                                   dataset.test_loaders, sub_t, device, args.cl_default, sep_axs[sub_t, t])
+                axs = plot_feat(model.net.backbone, dataset.memory_loaders,
+                                                dataset.test_loaders, t, device, args.cl_default, axs)
+                for sub_t in range(t + 1):
+                    sep_axs[sub_t, t] = plot_feat_sep(model.net.backbone, dataset.memory_loaders,
+                                                dataset.test_loaders, sub_t, device, args.cl_default, sep_axs[sub_t, t])    
+    else:
+        for t in range(dataset.N_TASKS):
+            # train_loader, memory_loader, test_loader = dataset.get_data_loaders(args)
+            _, _, _ = dataset.get_data_loaders(args)
+        
         model_path = os.path.join(
-            args.ckpt_dir, f"{args.model.cl_model}{scl_prefix}_{args.dataset.name}_{args.model.name}{args.utils.comment}_{t}.pth")
+            args.ckpt_dir, f"{args.model.cl_model}{scl_prefix}_{args.dataset.name}_{args.model.name}{args.utils.comment}_{0}.pth")
         print(f'loading from {model_path}')
         # model.load_state_dict(torch.load(model_path)['state_dict'], strict=False)
         model.cpu()
         model.net.backbone.load_state_dict({k[9:]:v for k, v in torch.load(model_path)['state_dict'].items() if 'backbone.' in k}, strict=True)
         model.to(device)
+        model.eval()
 
         if args.train.knn_monitor:
-            results = []
-            for i in range(len(dataset.test_loaders)):
-                # acc, acc_mask = knn_monitor(model.net.module.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
-                acc, acc_mask = knn_monitor(model.net.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
-                results.append(acc)
-                acc_matrix[i][t] = acc
-            # results = general_knn_monitor(model.net.backbone, dataset, dataset.memory_loaders, dataset.test_loaders, device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
-            # for i in range(len(dataset.test_loaders)):
-            #     acc_matrix[i][t] = results[i]
+            if args.eval.eval_type == 'task':
+                results = []
+                for i in range(len(dataset.test_loaders)):
+                    # acc, acc_mask = knn_monitor(model.net.module.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
+                    acc, acc_mask = knn_monitor(model.net.backbone, dataset, dataset.memory_loaders[i], dataset.test_loaders[i], device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
+                    results.append(acc)
+                    acc_matrix[i][t] = acc
+            else:                
+                results = general_knn_monitor(model.net.backbone, dataset, dataset.memory_loaders, dataset.test_loaders, device, args.cl_default, task_id=t, k=min(args.train.knn_k, len(memory_loader.dataset)))
+                for i in range(len(dataset.test_loaders)):
+                    acc_matrix[i][t] = results[i]
             mean_acc = np.mean(results)
         avg_acc.append(mean_acc)
 
@@ -124,10 +167,10 @@ def main(device, args):
             #     sep_axs[sub_t, t] = plot_feat(model.net.backbone, dataset.memory_loaders,
             #                                   dataset.test_loaders, sub_t, device, args.cl_default, sep_axs[sub_t, t])
             axs = plot_feat(model.net.backbone, dataset.memory_loaders,
-                                              dataset.test_loaders, t, device, args.cl_default, axs)
+                                            dataset.test_loaders, t, device, args.cl_default, axs)
             for sub_t in range(t + 1):
                 sep_axs[sub_t, t] = plot_feat_sep(model.net.backbone, dataset.memory_loaders,
-                                              dataset.test_loaders, sub_t, device, args.cl_default, sep_axs[sub_t, t])
+                                            dataset.test_loaders, sub_t, device, args.cl_default, sep_axs[sub_t, t])    
 
     if args.utils.posi_trans:
         for t in range(dataset.N_TASKS - 1):
@@ -190,7 +233,7 @@ def main(device, args):
         matrix_str = np.array2string(acc_matrix, precision=2, separator='\t', max_line_width=200)
         matrix_str = matrix_str.replace('[', '').replace(']', '')
         f.write('\n{}\tavg acc\t{}'.format(args.model.cl_model, avg_acc_str))
-        f.write('\n{}\tbwd trans\t{}'.format(args.model.cl_model, bwt_str))
+        # f.write('\n{}\tbwd trans\t{}'.format(args.model.cl_model, bwt_str))
         f.write('\nAccuracy matrix:\n {}\n'.format(matrix_str))
 
         new_ds_acc_str = np.array2string(np.array(new_ds_acc), precision=2, separator='\t', max_line_width=200)
@@ -199,14 +242,7 @@ def main(device, args):
 
         bwt_list_str = np.array2string(np.array(bwt_list), precision=2, separator='\t', max_line_width=200)
         bwt_list_str = bwt_list_str.replace('[', '').replace(']', '')
-        f.write('\n{}\tbwt list\t{}'.format(args.model.cl_model, bwt_list_str))
-
-    # with open(result_recording_path, 'a+') as f:
-    #     f.write('total time is: %d' % total_time)
-    #     f.write("\n")
-
-    # if args.eval is not False and args.cl_default is False:
-    #     args.eval_from = model_path
+        f.write('\n{}\tbwt list\t{}\n\n'.format(args.model.cl_model, bwt_list_str))
 
 
 if __name__ == "__main__":

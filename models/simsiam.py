@@ -4,18 +4,40 @@ import torch.nn.functional as F
 from torchvision.models import resnet50
 
 
-def D(p, z, version='simplified'): # negative cosine similarity
+# def D(p, z, version='simplified'): # negative cosine similarity
+#     if version == 'original':
+#         z = z.detach() # stop gradient
+#         p = F.normalize(p, dim=1) # l2-normalize 
+#         z = F.normalize(z, dim=1) # l2-normalize 
+#         return -(p*z).sum(dim=1).mean()
+
+#     elif version == 'simplified':# same thing, much faster. Scroll down, speed test in __main__
+#         return - F.cosine_similarity(p, z.detach(), dim=-1).mean()
+#     else:
+#         raise Exception
+
+def D(p, z, noise=None, T=None, version='simplified'): # negative cosine similarity
     if version == 'original':
         z = z.detach() # stop gradient
         p = F.normalize(p, dim=1) # l2-normalize 
         z = F.normalize(z, dim=1) # l2-normalize 
-        return -(p*z).sum(dim=1).mean()
-
+        if T == None:
+            return -(p*z).sum(dim=1).mean()
+        else:
+            return -torch.pow((p*z), T).sum(dim=1).mean()
     elif version == 'simplified':# same thing, much faster. Scroll down, speed test in __main__
-        return - F.cosine_similarity(p, z.detach(), dim=-1).mean()
+        if noise == None:
+            return - F.cosine_similarity(p, z.detach(), dim=-1).mean()
+        else:
+            # print("noise")
+            z = z.detach()
+            # print(noise.reshape(-1, 1))
+            noise = noise.reshape(-1, 1).expand(-1, 2048).to(p.device) * torch.randn(p.shape).to(p.device)
+            # p_noise = F.normalize(p, dim=1)
+            z_noise = F.normalize(z, dim=1) + noise
+            return - F.cosine_similarity(p, z_noise, dim=-1).mean()
     else:
         raise Exception
-
 
 
 class projection_MLP(nn.Module):
@@ -99,13 +121,19 @@ class SimSiam(nn.Module):
         )
         self.predictor = prediction_MLP()
     
-    def forward(self, x1, x2):
-
-        f, h = self.encoder, self.predictor
-        z1, z2 = f(x1), f(x2)
-        p1, p2 = h(z1), h(z2)
-        L = D(p1, z2) / 2 + D(p2, z1) / 2
-        return {'loss': L}
+    def forward(self, x1, x2=None, return_feat=False, old_data=False):
+        if not old_data:
+            f, h = self.encoder, self.predictor
+            z1, z2 = f(x1), f(x2)
+            p1, p2 = h(z1), h(z2)
+            L = D(p1, z2) / 2 + D(p2, z1) / 2
+            if not return_feat:
+                return {'loss': L}
+            else:
+                return {'loss': L}, z1, z2
+        else:            
+            z1 = self.encoder(x1)
+            return z1
 
 if __name__ == "__main__":
     model = SimSiam()

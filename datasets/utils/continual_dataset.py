@@ -34,6 +34,7 @@ class ContinualDataset:
         self.train_loaders = []
         self.i = 0
         self.args = args
+        self.permuted_class = None
 
     @abstractmethod
     def get_data_loaders(self) -> Tuple[DataLoader, DataLoader]:
@@ -104,10 +105,15 @@ def store_masked_loaders(train_dataset: datasets, test_dataset: datasets, memory
     :param setting: continual learning setting
     :return: train and test loaders
     """
-    train_mask = np.logical_and(np.array(train_dataset.targets) >= setting.i,
-        np.array(train_dataset.targets) < setting.i + setting.N_CLASSES_PER_TASK)
-    test_mask = np.logical_and(np.array(test_dataset.targets) >= setting.i,
-        np.array(test_dataset.targets) < setting.i + setting.N_CLASSES_PER_TASK)
+
+    if setting.permuted_class is not None:
+        train_mask = np.isin(np.array(train_dataset.targets), setting.permuted_class[setting.i:setting.i + setting.N_CLASSES_PER_TASK])
+        test_mask = np.isin(np.array(test_dataset.targets), setting.permuted_class[setting.i:setting.i + setting.N_CLASSES_PER_TASK])
+    else:
+        train_mask = np.logical_and(np.array(train_dataset.targets) >= setting.i,
+            np.array(train_dataset.targets) < setting.i + setting.N_CLASSES_PER_TASK)
+        test_mask = np.logical_and(np.array(test_dataset.targets) >= setting.i,
+            np.array(test_dataset.targets) < setting.i + setting.N_CLASSES_PER_TASK)
     
     train_dataset.data = train_dataset.data[train_mask]
     test_dataset.data = test_dataset.data[test_mask]

@@ -58,6 +58,8 @@ class TinyImagenet(Dataset):
                       ('train' if self.train else 'val', num+1))))
         self.targets = np.concatenate(np.array(self.targets))
 
+        self.classes = np.unique(self.targets)
+
     def __len__(self):
         return len(self.data)
 

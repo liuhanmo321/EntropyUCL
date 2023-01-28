@@ -59,11 +59,11 @@ def get_args():
     parser.add_argument('--ood_eval', action='store_true',
                         help='Test on the OOD set')
     parser.add_argument('--method', type=str, default=None)
+    parser.add_argument('--sum_cmt', type=str, default=None)
     args = parser.parse_args()
 
-
     # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    # os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(args.device_id), str(args.device_id + 1)])
+    # os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([args.device, str(int(args.device) + 1)])
 
     if len(args.device) == 1:
         args.device = 'cuda:' + args.device
@@ -87,13 +87,21 @@ def get_args():
         args.model.cl_model = args.method
 
     print(args.model.cl_model)
+    
+    scl_prefix = '_scl' if args.cl_default else ''
+    args.utils.comment = '_' + str(args.utils.comment) if args.utils.use_comment else ''
+    info = f"{args.model.cl_model}{scl_prefix}_{args.dataset.name}_{args.model.name}{args.utils.comment}"
+
+    # if not args.cl_default:
+    #     args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
+    # else:
+    #     args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_scl_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
 
     if not args.cl_default:
-        args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
+        args.log_dir = os.path.join(args.log_dir, info+'_in-progress_'+datetime.now().strftime('%m%d%H%M%S_'))
     else:
-        args.log_dir = os.path.join(args.log_dir, args.model.cl_model+'_scl_in-progress_'+datetime.now().strftime('%m%d%H%M%S_')+args.name)
-
-    args.utils.comment = '_' + str(args.utils.comment) if args.utils.use_comment else ''
+        # args.log_dir = os.path.join(args.log_dir, info+'_in-progress_'+datetime.now().strftime('%m%d%H%M%S_'))
+        args.log_dir = os.path.join(args.log_dir, info+'_in-progress')
 
     os.makedirs(args.log_dir, exist_ok=False)
     print(f'creating file {args.log_dir}')
