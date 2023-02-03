@@ -48,10 +48,6 @@ def D(p, z, noise=None, T=None, version='simplified', type='simsiam'): # negativ
                 # p_noise = F.normalize(p, dim=1)
                 z_noise = F.normalize(z, dim=1) + noise
                 return - F.cosine_similarity(p, z_noise, dim=-1).mean()
-            # else:
-            #     # print('distillation called')
-            #     return -torch.pow((1 + F.cosine_similarity(p, z.detach(), dim=-1)), T).mean()
-            # return - F.cosine_similarity(p, z.detach(), dim=-1).mean()
         else:
             raise Exception
     else:
@@ -139,32 +135,6 @@ class Cassle_uniform(ContinualModel):
                 z1_old, z2_old = f_old(x), f_old(x2)
             L_dis = self.args.train.beta * (D(p1, z2_old) / 2 + D(p2, z1_old) / 2)
         
-        # L_relation = 0
-        # if self.args.train.distill_relation:
-        #     # print("distill relationship")
-        #     dp_norm = F.normalize(dp, dim=1) # l2-normalize 
-        #     z_old_norm = F.normalize(z_old, dim=1) # l2-normalize
-
-        #     new_sim = torch.matmul(dp_norm, dp_norm.T) 
-        #     old_sim = torch.matmul(z_old_norm, z_old_norm.T)
-
-        #     logits_mask = torch.scatter(
-        #         torch.ones_like(new_sim),
-        #         1,
-        #         torch.arange(new_sim.size(0)).view(-1, 1).to(self.args.device),
-        #         0
-        #     )
-
-        #     new_logits_max, _ = torch.max(new_sim * logits_mask, dim=1, keepdim=True)
-        #     new_sim = new_sim - new_logits_max.detach()
-        #     row_size = new_sim.size(0)
-        #     new_logits = torch.exp(new_sim[logits_mask.bool()].view(row_size, -1)) / torch.exp(new_sim[logits_mask.bool()].view(row_size, -1)).sum(dim=1, keepdim=True)
- 
-        #     old_logits_max, _ = torch.max(old_sim * logits_mask, dim=1, keepdim=True)
-        #     old_sim = old_sim - old_logits_max.detach()
-        #     old_logits = torch.exp(old_sim[logits_mask.bool()].view(row_size, -1)) / torch.exp(old_sim[logits_mask.bool()].view(row_size, -1)).sum(dim=1, keepdim=True)
-
-        #     L_relation = (-old_logits * torch.log(new_logits)).sum(1).mean()
 
         return L_dis.mean()
 
@@ -177,17 +147,12 @@ class Cassle_uniform(ContinualModel):
         z1, z2 = f(x1), f(x2)
         p1, p2 = h(z1), h(z2)
         dp1, dp2 = self.distill_predictor(z1), self.distill_predictor(z2)
-        # print("torch.cuda.memory_allocated 2: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
         L_con = D(p1, z2) / 2 + D(p2, z1) / 2
-        # print("torch.cuda.memory_allocated 3: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
+
 
         with torch.no_grad():
             z1_old, z2_old = f_old(x1), f_old(x2)
-        # print("torch.cuda.memory_allocated 4: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
-        # L_dis = D(p1, z1_old, T=self.args.train.T) / 2 + D(p2, z2_old, T=self.args.train.T) / 2
         L_dis = (D(h(dp1), z1_old) / 2 + D(h(dp2), z2_old) / 2)
-        # print("torch.cuda.memory_allocated 5: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
-        # L_dis = D(p1, z2_old, T=self.args.train.T) / 2 + D(p2, z1_old, T=self.args.train.T) / 2
         return {'loss': L_con, 'penalty': L_dis}
 
     def observe(self, inputs1, labels, inputs2, notaug_inputs, model_old=None):
@@ -511,27 +476,6 @@ class Cassle_uniform(ContinualModel):
                     indices.append(selected_indice)
                     print("entropy is: ", entropy)
             std_list = None                     
-        # print(std_list)
-             
-        # if self.args.train.add_noise and model_old != None:
-        #     # print(len(self.buffer.noise_buffer))
-        #     fracs = []
-        #     for i, stored_data in enumerate(self.buffer.ds_buffer):                
-        #         with torch.no_grad():
-                    
-        #             if self.args.train.encoder_feat:
-        #                 features = self.net.encoder(stored_data.to(self.device))
-        #                 old_features = model_old.encoder(stored_data.to(self.device))
-        #             else:
-        #                 features = self.net.backbone(stored_data.to(self.device))
-        #                 old_features = model_old.backbone(stored_data.to(self.device))
-                    
-        #             std = torch.mean(torch.std(features, dim=0))
-        #             old_std = torch.mean(torch.std(old_features, dim=0))
-        #             frac = std / old_std
-        #             fracs.append(frac)                     
-        #             self.buffer.noise_buffer[i] = self.buffer.noise_buffer[i] * frac.cpu()
-        #     print(fracs) 
         
         print('noise stored: ', std_list != None)
         self.buffer.add_data(examples=image_bank[indices, :], logits=std_list, seen=self.seen_tasks)                
@@ -599,58 +543,7 @@ class Buffer:
                 setattr(self, attr_str, torch.zeros((self.buffer_size,
                         *attr.shape[1:]), dtype=typ, device=self.device))
 
-    # def add_data(self, examples, labels=None, logits=None, task_labels=None, seen=0):
-    #     """
-    #     Adds the data to the memory buffer according to the reservoir strategy.
-    #     :param examples: tensor containing the images
-    #     :param labels: tensor containing the labels
-    #     :param logits: tensor containing the outputs of the network
-    #     :param task_labels: tensor containing the task labels
-    #     :return:
-    #     """
-    #     if not hasattr(self, 'examples'):
-    #         self.init_tensors(examples, labels, logits, task_labels)
-        
-    #     self.ds_buffer.append(examples)
-    #     sampling_range = int(self.buffer_size / seen)
-    #     for ds_id in range(seen):
-    #         if ds_id + 1 == seen:
-    #             for i in range((self.buffer_size - ds_id * sampling_range)):
-    #                 self.examples[i + ds_id * sampling_range] = self.ds_buffer[ds_id][i]
-    #                 # self.logits[i + ds_id * sampling_range] = self.ds_buffer[ds_id][1][i]
-    #         else:
-    #             for i in range(sampling_range):
-    #                 self.examples[i + ds_id * sampling_range] = self.ds_buffer[ds_id][i]
-    #                 # self.logits[i + ds_id * sampling_range] = self.ds_buffer[ds_id][1][i]
 
-
-    # def get_data(self, size: int, transform: transforms=None) -> Tuple:
-    #     """
-    #     Random samples a batch of size items.
-    #     :param size: the number of requested items
-    #     :param transform: the transformation to be applied (data augmentation)
-    #     :return:
-    #     """
-    #     if size > self.examples.shape[0]:
-    #         size = self.examples.shape[0]
-    #     # print("size is: ", size)
-
-    #     choice = np.random.choice(self.examples.shape[0], size=size, replace=False)
-    #     if transform is None: transform = lambda x: x
-    #     # import pdb
-    #     # pdb.set_trace()
-    #     ret_tuple = (torch.stack([transform(ee.cpu()) for ee in self.examples[choice]]).to(self.device),)
-    #     # ret_tuple = (torch.stack([transform(ee.cpu())
-    #     #                 for ee in self.examples]).to(self.device),
-    #     #             torch.stack([transform(ee.cpu())
-    #     #                 for ee in self.examples]).to(self.device))
-
-    #     for attr_str in self.attributes[1:]:
-    #         if hasattr(self, attr_str):
-    #             attr = getattr(self, attr_str)
-    #             ret_tuple += (attr[choice],)
-
-    #     return ret_tuple
 
     def add_data(self, examples, labels=None, logits=None, task_labels=None, seen=0):
         """

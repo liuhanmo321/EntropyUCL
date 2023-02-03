@@ -27,8 +27,25 @@ train:
   knn_interval: 20
   knn_k: 20
   alpha: 0.4
-  beta: 0.1
-  min_cluster_size: 50
+  beta: 1
+  min_cluster_size: 25
+  T: 0.5
+  continual_step: 3
+  
+  more_epochs: 0
+  distill_old: True
+  cluster_type: pca
+  linkage: average
+  distill_relation: False
+  remove_outliers: False
+  
+  cluster_number: 5
+  add_noise: True
+  encoder_feat: True
+  threshold: 0.01
+  knn_n: 10
+  parallel: False
+
 eval: # linear evaluation, False will turn off automatic evaluation after training
   optimizer: 
     name: sgd
@@ -40,7 +57,15 @@ eval: # linear evaluation, False will turn off automatic evaluation after traini
   final_lr: 0
   batch_size: 256
   num_epochs: 100
+  eval_type: task
 
+
+utils:
+  plot_feat: False
+  posi_trans: True
+  use_comment: True
+  comment: testing
+  
 logger:
   csv_log: True
   tensorboard: True

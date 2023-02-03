@@ -32,7 +32,7 @@ train:
   min_cluster_size: 25
   T: 0.5
   continual_step: 3
-  storing_method: random
+
   more_epochs: 0
   distill_old: True
   cluster_type: random
@@ -41,22 +41,12 @@ train:
   remove_outliers: False
   
   cluster_number: 2
-  add_noise: False
+  add_noise: True
   knn_n: 100
   parallel: False
   encoder_feat: True
   threshold: 0.01
 
-  img_lr: 2
-  lr_lr: 1e-05
-  syn_lr: 0.3
-  syn_step: 50
-  feat_dist_type: cos
-  expert_epoch: 1
-  # distill_step: 100
-  f_train_step: 25
-  distill_step: 500
-  noise_mag: 0.05
 
 eval: # linear evaluation, False will turn off automatic evaluation after training
   optimizer: 

@@ -1,20 +1,15 @@
 name: simsiam-c100-experiment-resnet18
-
-repeat: 3
-
 dataset: 
   name: seq-cifar100
   image_size: 32
   num_workers: 4
 
 model: 
-  # name: barlowtwins
   name: simsiam
   backbone: resnet18
   cl_model: finetune
   proj_layers: 2
   buffer_size: 32
-  # buffer_size: 256
 
 train:
   optimizer: 
@@ -34,10 +29,9 @@ train:
   alpha: 0.1
   beta: 1
   min_cluster_size: 25
-  cluster_number: 5
   T: 0.5
   continual_step: 3
-  storing_method: random
+  
   more_epochs: 0
   distill_old: True
   cluster_type: pca
@@ -45,20 +39,13 @@ train:
   distill_relation: False
   remove_outliers: False
   
-  scale_loss: 0.1
+  cluster_number: 5
   add_noise: True
   encoder_feat: True
   threshold: 0.01
-  
   knn_n: 10
   parallel: False
 
-  img_lr: 100
-  lr_lr: 1e-05
-  syn_step: 8
-  max_start_epoch: 100
-  expert_epoch: 1
-  distill_step: 200
 eval: # linear evaluation, False will turn off automatic evaluation after training
   optimizer: 
     name: sgd
@@ -76,9 +63,7 @@ utils:
   plot_feat: False
   posi_trans: True
   use_comment: True
-  # comment: 10class_buf320_300epoch_seed1
-  # comment: 10class_300epc_seed4
-  comment: seed4
+  comment: testing
   
  
 logger:
