@@ -9,7 +9,7 @@ model:
   backbone: resnet18
   cl_model: der
   proj_layers: 2
-  buffer_size: 32
+  buffer_size: 16
 
 train:
   optimizer: 
@@ -27,7 +27,7 @@ train:
   knn_monitor: True # knn monitor will take more time
   knn_interval: 50
   knn_k: 200
-  alpha: 0.1
+  alpha: 100
   beta: 1
   min_cluster_size: 25
   T: 0.5
@@ -35,12 +35,13 @@ train:
   storing_method: random
   more_epochs: 0
   distill_old: True
-  cluster_type: pca
+  cluster_type: random
   linkage: average
   distill_relation: False
   remove_outliers: False
   
-  add_noise: True
+  cluster_number: 2
+  add_noise: False
   knn_n: 100
   parallel: False
   encoder_feat: True
@@ -75,14 +76,14 @@ utils:
   plot_feat: False
   posi_trans: True
   use_comment: True
-  comment: noise-knn100-seed4
+  comment: alpha
 
 logger:
   csv_log: True
   tensorboard: True
   matplotlib: True
 
-seed: 4 # None type for yaml file
+seed: 10 # None type for yaml file
 # two things might lead to stochastic behavior other than seed:
 # worker_init_fn from dataloader and torch.nn.functional.interpolate 
 # (keep this in mind if you want to achieve 100% deterministic)

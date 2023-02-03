@@ -76,7 +76,7 @@ def D(p, z, noise=None, T=None, version='simplified', type='simsiam'): # negativ
         c_diff = (c - torch.eye(D,device=p_norm.device)).pow(2) # DxD
         # multiply off-diagonal elems of c_diff by lambda
         c_diff[~torch.eye(D, dtype=bool)] *= 5e-3
-        loss = 0.1 * c_diff.sum()
+        loss = c_diff.sum()
 
         return loss
 
@@ -292,6 +292,7 @@ class Cassle_uniform(ContinualModel):
             indices = pairwise_distances_argmin(centers, feature_bank.cpu())
             
             if self.args.train.add_noise:
+                print('add noise!!!!')
                 std_list = []
                 for i in range(self.args.model.buffer_size):
                     mask = cluster_labels == i
@@ -394,7 +395,8 @@ class Cassle_uniform(ContinualModel):
                 core_indices = list(set(core_indices))
                 centers, indices = kmeans_plusplus(feature_bank[core_indices], n_clusters=self.args.model.buffer_size)
             else:
-                centers, indices = kmeans_plusplus(feature_bank.cpu().numpy(), n_clusters=self.args.model.buffer_size)
+                print('most distant!')
+                centers, indices = kmeans_plusplus(feature_bank.cpu().numpy(), n_clusters=self.args.model.buffer_size, random_state=None)
             std_list = None 
 
         elif self.args.train.cluster_type == 'random':         
